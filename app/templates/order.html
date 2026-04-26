@@ -1,0 +1,176 @@
+
+
+{% extends "base.html" %}
+
+{% block title %}{{ agent.name }} | Multi Agent System{% endblock %}
+
+{% block content %}
+<section class="chat-layout">
+  <aside class="agent-panel">
+    <div class="agent-icon large">
+      {% if agent.slug == "master" %}🧠
+      {% elif agent.slug == "finance" %}💰
+      {% elif agent.slug == "hr" %}👥
+      {% elif agent.slug == "sales" %}📈
+      {% elif agent.slug == "operations" %}⚙️
+      {% else %}🤖
+      {% endif %}
+    </div>
+
+    <h1>{{ agent.name }}</h1>
+    <p>{{ agent.description }}</p>
+
+    {% if agent.is_master %}
+      <span class="badge">Master Router</span>
+    {% else %}
+      <span class="badge">Department Agent</span>
+    {% endif %}
+
+    <a href="/" class="secondary-link">← Back to agents</a>
+  </aside>
+
+  <section class="chat-panel">
+    <div id="chatMessages" class="chat-messages">
+      <div class="message assistant">
+        <strong>{{ agent.name }}</strong>
+        <p>Hello! I am {{ agent.name }}. How can I help?</p>
+      </div>
+    </div>
+
+    <form id="chatForm" class="chat-form">
+      <input
+        id="messageInput"
+        type="text"
+        placeholder="Type your message..."
+        autocomplete="off"
+        required
+      />
+      <button type="submit">Send</button>
+    </form>
+  </section>
+</section>
+
+<script>
+  const chatForm = document.getElementById("chatForm");
+  const messageInput = document.getElementById("messageInput");
+  const chatMessages = document.getElementById("chatMessages");
+
+  const customerKey = localStorage.getItem("customer_key") || crypto.randomUUID();
+  localStorage.setItem("customer_key", customerKey);
+
+  function addMessage(role, text, agentName = null) {
+    const div = document.createElement("div");
+    div.className = `message ${role}`;
+
+    if (agentName) {
+      div.innerHTML = `<strong>${agentName}</strong><p>${text}</p>`;
+    } else {
+      div.innerHTML = `<p>${text}</p>`;
+    }
+
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  chatForm.addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    const message = messageInput.value.trim();
+    if (!message) return;
+
+    addMessage("user", message);
+    messageInput.value = "";
+
+    addMessage("assistant loading", "Thinking...");
+
+    try {
+      const res = await fetch("/chat/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          customer_key: customerKey,
+          message: message,
+          channel: "chat",
+          agent_slug: "{{ agent.slug }}"
+        })
+      });
+
+      const data = await res.json();
+
+      const loading = document.querySelector(".message.loading");
+      if (loading) loading.remove();
+
+      if (!res.ok) {
+        addMessage("assistant", data.detail || "Something went wrong.", "{{ agent.name }}");
+        return;
+      }
+
+      const routedAgent = data.agent ? data.agent.toUpperCase() : "{{ agent.name }}";
+      addMessage("assistant", data.reply, routedAgent);
+
+    } catch (err) {
+      const loading = document.querySelector(".message.loading");
+      if (loading) loading.remove();
+
+      addMessage("assistant", "Server error. Please try again.", "{{ agent.name }}");
+    }
+  });
+</script>
+<script src="https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js"></script>
+
+<script>
+  var vapiInstance = null;
+
+  const assistant = "{{ vapi_assistant_id }}";
+  const apiKey = "{{ vapi_public_key }}";
+
+  const buttonConfig = {
+    position: "bottom-right",
+    offset: "40px",
+    width: "56px",
+    height: "56px",
+    idle: {
+      color: "rgb(79, 70, 229)",
+      type: "round",
+      title: "Talk to {{ agent.name }}",
+      subtitle: "Voice assistant",
+      icon: "https://unpkg.com/lucide-static@latest/icons/phone.svg"
+    },
+    loading: {
+      color: "rgb(79, 70, 229)",
+      type: "round",
+      title: "Connecting...",
+      subtitle: "Please wait",
+      icon: "https://unpkg.com/lucide-static@latest/icons/loader.svg"
+    },
+    active: {
+      color: "rgb(220, 38, 38)",
+      type: "round",
+      title: "Call active",
+      subtitle: "Click to end",
+      icon: "https://unpkg.com/lucide-static@latest/icons/phone-off.svg"
+    }
+  };
+
+  (function (d, t) {
+    const g = document.createElement(t);
+    const s = d.getElementsByTagName(t)[0];
+
+    g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+    g.defer = true;
+    g.async = true;
+
+    s.parentNode.insertBefore(g, s);
+
+    g.onload = function () {
+      vapiInstance = window.vapiSDK.run({
+        apiKey: apiKey,
+        assistant: assistant,
+        config: buttonConfig
+      });
+    };
+  })(document, "script");
+</script>
+{% endblock %}

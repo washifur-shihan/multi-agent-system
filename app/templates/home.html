@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}Agents | Multi Agent System{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <h1>Company Multi-Agent Assistant</h1>
+  <p>
+    Choose a department agent or start with the Master Agent to automatically route your question.
+  </p>
+</section>
+
+<section class="agent-grid">
+  {% for agent in agents %}
+  <div class="agent-card {% if agent.is_master %}master-card{% endif %}">
+    <div class="agent-icon">
+      {% if agent.slug == "master" %}🧠
+      {% elif agent.slug == "finance" %}💰
+      {% elif agent.slug == "hr" %}👥
+      {% elif agent.slug == "sales" %}📈
+      {% elif agent.slug == "operations" %}⚙️
+      {% else %}🤖
+      {% endif %}
+    </div>
+
+    <h2>{{ agent.name }}</h2>
+    <p>{{ agent.description }}</p>
+
+    <a class="btn" href="/a/{{ agent.slug }}">
+      Open {{ agent.name }}
+    </a>
+  </div>
+  {% endfor %}
+</section>
+{% endblock %}
