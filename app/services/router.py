@@ -1,48 +1,53 @@
-import json
-from openai import OpenAI
-from app.config import settings
 from app.services.agents import get_agent_by_slug
 
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
-
-MASTER_ROUTER_PROMPT = """
-You are a master routing agent.
-
-Route the user's message to exactly one department agent.
-
-Available agents:
-- finance: payroll, salaries, compensation payments, budgets, invoices, expenses, vendor payments, revenue, financial reports, accounting, tax, reimbursements
-- hr: hiring, onboarding, leave, attendance, employee policies, benefits, employee relations, performance reviews, recruitment
-- sales: leads, customers, CRM, pipeline, quotes, pricing, follow-ups, deals
-- operations: logistics, inventory, SOPs, vendors, fulfillment, daily operations, processes
-
-Important routing rules:
-- If the message mentions payroll, salary payment, compensation payment, invoice, expense, reimbursement, accounting, or budget, route to finance.
-- If the message mentions hiring, leave, attendance, onboarding, employee policy, benefits, or recruitment, route to hr.
-- If both HR and Finance could apply, choose finance when money/payment/payroll is the main topic.
-
-Return only valid JSON:
-{
-  "agent_slug": "finance|hr|sales|operations",
-  "reason": "short reason"
+DEPARTMENTS = {
+    "finance": [
+    "finance", "financial", "financial report", "financial reports",
+    "payroll", "salary", "payment", "payments",
+    "invoice", "invoices",
+    "expense", "expenses",
+    "reimbursement", "reimbursements",
+    "budget", "budgets",
+    "accounting", "tax", "revenue", "profit", "loss"
+],
+    "hr": [
+        "hiring", "recruitment", "leave", "attendance", "onboarding",
+        "employee policy", "benefits", "performance", "termination"
+    ],
+    "sales": [
+        "lead", "customer", "crm", "deal", "quote", "pricing",
+        "proposal", "follow up", "pipeline"
+    ],
+    "operations": [
+        "inventory", "logistics", "vendor", "sop", "fulfillment",
+        "delivery", "process", "workflow", "supply"
+    ],
 }
-"""
+
+
+def rule_based_route(message: str):
+    text = message.lower()
+    scores = {}
+    # DIRECT DEPARTMENT MENTION (highest priority)
+    for dept in DEPARTMENTS.keys():
+        if dept in text:
+            return dept, f"User explicitly mentioned {dept}"
+
+    for dept, keywords in DEPARTMENTS.items():
+        scores[dept] = sum(1 for word in keywords if word in text)
+
+    best = max(scores, key=scores.get)
+
+    if scores[best] > 0:
+        return best, f"Matched keywords for {best}"
+
+    return None, "No clear department match"
 
 
 def route_to_agent(message: str):
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": MASTER_ROUTER_PROMPT},
-            {"role": "user", "content": message},
-        ],
-        temperature=0,
-    )
+    slug, reason = rule_based_route(message)
 
-    raw = response.choices[0].message.content or "{}"
-    data = json.loads(raw)
+    if slug is None:
+        return None, reason
 
-    agent_slug = data.get("agent_slug", "operations")
-    agent = get_agent_by_slug(agent_slug)
-
-    return agent, data.get("reason", "")
+    return get_agent_by_slug(slug), reason

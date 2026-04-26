@@ -5,58 +5,69 @@ from app.services.agents import build_agent_prompt
 client = OpenAI(api_key=settings.OPENAI_API_KEY)
 
 
-def _format_recent_messages(recent_messages: list[dict]) -> str:
+def _format_recent_messages(recent_messages):
     if not recent_messages:
         return "No recent messages."
-
-    return "\n".join(
-        f"{m.get('role', 'unknown')}: {m.get('content', '')}"
-        for m in recent_messages
-    )
+    return "\n".join(f"{m['role']}: {m['content']}" for m in recent_messages)
 
 
-def _format_knowledge_context(knowledge_context: list[dict]) -> str:
-    if not knowledge_context:
-        return "No matching knowledge found."
-
-    return "\n\n".join(
-        item.get("content", "")
-        for item in knowledge_context
-    )
+def _format_knowledge_context(ctx):
+    if not ctx:
+        return "No matching knowledge."
+    return "\n\n".join(x["content"] for x in ctx)
 
 
 def generate_answer(
-    user_message: str,
-    recent_messages: list[dict],
-    knowledge_context: list[dict],
-    customer: dict,
-    conversation: dict,
-    agent: dict,
-    route_reason: str | None = None,
-) -> str:
+    user_message,
+    recent_messages,
+    knowledge_context,
+    customer,
+    conversation,
+    agent,
+    route_reason=None,
+    transferred_from_master=False,
+):
     system_prompt = build_agent_prompt(agent)
 
+    transfer_instruction = ""
+
+    if agent["slug"] == "master":
+        transfer_instruction = """
+You are the Master Agent.
+
+If user greets or asks who you are:
+Say:
+"Hello, you’ve reached the company assistant. I can connect you to Finance, HR, Sales, or Operations. How can I help you?"
+
+Do NOT transfer unless needed.
+"""
+
+    elif transferred_from_master:
+        transfer_instruction = f"""
+The Master Agent has transferred the call to you.
+
+Start with:
+"Hello, this is the {agent['name']}. I can help you with this."
+
+Then:
+- If clear → answer directly
+- If unclear → ask one follow-up question
+"""
+
     user_prompt = f"""
-Agent selected: {agent.get('name')}
-Routing reason: {route_reason or 'N/A'}
-
-Customer:
-{customer}
-
-Conversation:
-{conversation}
-
-Recent messages:
-{_format_recent_messages(recent_messages)}
-
-Knowledge context:
-{_format_knowledge_context(knowledge_context)}
+{transfer_instruction}
 
 User message:
 {user_message}
-""".strip()
 
-    response = client.chat.completions.create(
+Recent:
+{_format_recent_messages(recent_messages)}
+
+Knowledge:
+{_format_knowledge_context(knowledge_context)}
+"""
+
+    res = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": system_prompt},
@@ -65,4 +76,4 @@ User message:
         temperature=0.3,
     )
 
-    return response.choices[0].message.content or ""
+    return res.choices[0].message.content or ""
