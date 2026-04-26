@@ -1,80 +1,104 @@
-# AI Restaurant Ordering System
+# 🧠 Multi-Agent System (Finance • HR • Sales • Operations)
 
-An AI-powered restaurant ordering system built with FastAPI, Supabase, OpenAI, and Vapi. Customers can choose a restaurant, chat with an AI ordering assistant, or use the Vapi voice widget to ask about menu items and place orders.
+A production-ready multi-agent AI system built with FastAPI, Supabase, OpenAI, and Vapi. It routes user queries to specialized department agents through a Master Agent and supports chat, voice, PDF knowledge ingestion, embeddings, and retrieval-augmented generation.
 
-Live demo: https://order-system-vapi-fastapi.onrender.com/
+## 🚀 Features
 
-## Features
+### 🧠 Multi-Agent Architecture
 
-- Multi-restaurant ordering flow
-- Restaurant pages at `/r/{slug}`
-- Chat-based ordering through a FastAPI endpoint
-- Voice ordering through the embedded Vapi widget
-- Restaurant-specific assistant prompts
-- Menu retrieval with OpenAI embeddings and Supabase vector search
-- PDF menu upload and background ingestion
-- Conversation memory and draft order extraction
+- Master Agent routes user queries to the right department
+- Finance Agent handles payroll, invoices, expenses, budgets, and reimbursements
+- HR Agent handles hiring, leave, attendance, employee policies, and benefits
+- Sales Agent handles leads, CRM, quotes, follow-ups, and deals
+- Operations Agent handles logistics, SOPs, vendors, inventory, and daily operations
 
-## Tech Stack
+### 🔍 Retrieval-Augmented Generation (RAG)
 
-Backend:
+- Upload PDFs per agent
+- Automatic PDF text extraction, chunking, and embeddings
+- Semantic search through Supabase Postgres + pgvector
+- Grounded LLM responses using department-specific knowledge
 
-- FastAPI
-- Python
-- Supabase
-- OpenAI
-- Vapi
+### 🎙️ Voice Integration (Vapi)
 
-Frontend:
+- Real-time voice assistant support
+- Vapi calls the backend `/chat/` endpoint
+- Dynamic routing through the Master Agent
+- Response mapping through the `reply` field
 
-- Jinja templates
-- HTML
-- CSS
-- JavaScript Fetch API
+### 💬 Chat UI
 
-Data and AI:
+- Clean Jinja2 frontend
+- Agent-specific chat pages
+- Session-based conversation memory
+- Shared chat endpoint for web and voice channels
 
-- OpenAI embeddings
-- Supabase PostgreSQL and Storage
-- pgvector search
-- Retrieval-augmented generation
-- PDF menu processing with `pypdf`
+## 🏗️ Tech Stack
 
-## Project Structure
+- Backend: FastAPI
+- Database: Supabase Postgres + pgvector
+- LLM: OpenAI GPT-4o-mini
+- Voice: Vapi
+- Frontend: Jinja2 + vanilla JavaScript
+- Storage: Supabase Storage
+- PDF Processing: pypdf
+
+## 📂 Project Structure
 
 ```text
 app/
-  api/             FastAPI route modules
-  db/              Supabase client setup
-  models/          Request/response schemas
-  services/        Business logic, retrieval, LLM, orders, PDF ingestion
-  static/          CSS assets
-  templates/       Jinja HTML templates
-  config.py        Environment-based settings
-  main.py          FastAPI application entry point
-requirements.txt
-README.md
+├── api/
+│   ├── chat.py          # Main chat endpoint for Vapi + UI
+│   ├── knowledge.py     # PDF upload endpoint
+│   ├── orders.py        # Orders route module
+│   ├── vapi.py          # Vapi route module
+│   └── vapi_dynamic.py  # Dynamic Vapi route module
+│
+├── services/
+│   ├── agents.py        # Agent lookup, prompts, and Vapi widget config
+│   ├── router.py        # Master routing logic
+│   ├── retrieval.py     # Vector search + conversation retrieval
+│   ├── llm_chat.py      # LLM response generation
+│   ├── memory.py        # Customers, conversations, and messages
+│   └── pdf_ingest.py    # PDF → chunks → embeddings
+│
+├── templates/
+│   ├── base.html
+│   ├── home.html
+│   └── order.html       # Agent chat UI
+│
+├── static/
+│   └── css/style.css
+│
+├── db/
+│   └── supabase.py
+│
+├── config.py
+└── main.py
 ```
 
-## Local Setup
+## ⚙️ Setup
 
-1. Clone the repository and enter the project directory.
-
-```bash
-git clone <repo-url>
-cd order-system-vapi
-```
-
-2. Create and activate a virtual environment.
+### 1. Clone and install
 
 ```bash
+git clone <your-repo>
+cd multi-agent-system
 python -m venv venv
 ```
+
+Activate the virtual environment.
 
 Windows PowerShell:
 
 ```powershell
 .\venv\Scripts\Activate.ps1
+```
+
+Windows CMD:
+
+```bat
+venv\Scripts\activate
 ```
 
 macOS/Linux:
@@ -83,81 +107,165 @@ macOS/Linux:
 source venv/bin/activate
 ```
 
-3. Install dependencies.
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Create a `.env` file in the project root.
+### 2. Environment variables
+
+Create a `.env` file in the project root:
 
 ```env
-SUPABASE_URL=your-supabase-url
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
-VAPI_API_KEY=your-vapi-api-key
-ELEVENLABS_API_KEY=your-elevenlabs-api-key
-OPENAI_API_KEY=your-openai-api-key
+SUPABASE_URL=your_project_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+SUPABASE_BUCKET=knowledge-files
+
+OPENAI_API_KEY=your_openai_key
+
+VAPI_PUBLIC_KEY=your_public_key
+VAPI_ASSISTANT_ID=your_assistant_id
 ```
 
-5. Run the development server.
+Optional:
+
+```env
+VAPI_API_KEY=your_vapi_api_key
+ELEVENLABS_API_KEY=your_elevenlabs_api_key
+```
+
+### 3. Run the server
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open the app at:
+Open:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-## Main Routes
+## 🗄️ Database Setup (Supabase)
 
-- `GET /` - restaurant selection page
-- `GET /r/{slug}` - restaurant ordering page
-- `POST /chat/` - chat with the AI assistant
-- `POST /menu/upload/{restaurant_id}` - upload and ingest a PDF menu
-- `POST /kb/{restaurant_slug}/search` - retrieve menu knowledge for a restaurant
-- `GET /orders/` - orders route health check
-- `GET /health` - application health check
-- `GET /docs` - FastAPI Swagger documentation
+The app expects Supabase tables for:
 
-## Supabase Requirements
+- `agents`
+- `customers`
+- `conversations`
+- `messages`
+- `knowledge_documents`
+- `knowledge_chunks`
 
-The application expects Supabase to provide:
-
-- A `menu-files` storage bucket for uploaded PDF menus
-- Tables for `restaurants`, `menu_documents`, `menu_chunks`, `customers`, `conversations`, `messages`, and `orders`
-- A vector search RPC function named `match_menu_chunks`
-
-Restaurant records should include fields used by the app, such as `id`, `name`, `slug`, `welcome_message`, `prompt_instructions`, `voice_provider`, `voice_id`, and `vapi_knowledge_base_id`.
-
-## How It Works
-
-1. A customer selects a restaurant from the home page.
-2. The restaurant page loads a restaurant-specific chat and voice assistant.
-3. Chat messages are sent to `/chat/`.
-4. The backend retrieves matching menu chunks from Supabase.
-5. OpenAI generates a grounded response using the retrieved menu context.
-6. The conversation is saved, and draft order items are extracted when possible.
-
-## Deployment
-
-This project is currently hosted on Render and uses Supabase for database and file storage.
-
-Production URL:
+It also expects a vector search RPC function:
 
 ```text
-https://order-system-vapi-fastapi.onrender.com/
+match_knowledge_chunks(...)
 ```
 
-## Future Improvements
+Use a Supabase Storage bucket named:
 
-- Full checkout flow with cart review and payment support
-- Admin dashboard for restaurant owners
-- Real-time voice call transcript UI
-- Better speech-to-text normalization for order items
-- Mobile-friendly refinements
+```text
+knowledge-files
+```
+
+## 🧠 How Routing Works
+
+```text
+User input
+   ↓
+Master Agent (router.py)
+   ↓
+Select department agent
+   ↓
+Retrieve relevant knowledge from Supabase vector search
+   ↓
+Generate response with OpenAI
+   ↓
+Save conversation memory
+```
+
+Available department routes:
+
+| Query type | Routed agent |
+| --- | --- |
+| Payroll, invoices, expenses, reimbursements | Finance |
+| Hiring, leave, attendance, policies, benefits | HR |
+| Leads, CRM, pricing, follow-ups, deals | Sales |
+| Logistics, SOPs, vendors, inventory | Operations |
+
+## 🎙️ Vapi Integration
+
+Configure a Vapi tool with:
+
+```text
+Method: POST
+URL: https://your-domain.com/chat/
+```
+
+Request body:
+
+```json
+{
+  "customer_key": "voice-user",
+  "message": "{{transcript}}",
+  "channel": "voice",
+  "agent_slug": "master"
+}
+```
+
+Response mapping:
+
+```text
+reply
+```
+
+## 📄 Knowledge Upload
+
+Upload PDFs for an agent:
+
+```text
+POST /knowledge/upload/{agent_id}
+```
+
+Ingestion flow:
+
+```text
+PDF → text extraction → chunks → embeddings → Supabase vector storage
+```
+
+## 🌐 Main Routes
+
+- `GET /` - agent selection page
+- `GET /a/{slug}` - agent chat page
+- `POST /chat/` - chat endpoint for UI and Vapi
+- `POST /knowledge/upload/{agent_id}` - upload and ingest a PDF for an agent
+- `GET /health` - health check
+- `GET /docs` - FastAPI Swagger documentation
+
+## 🧪 Example Queries
+
+| Input | Expected agent |
+| --- | --- |
+| "I need help with payroll" | Finance |
+| "How many leave days do I have?" | HR |
+| "Follow up with this lead" | Sales |
+| "Inventory is low" | Operations |
+
+
+## 🔥 Future Improvements
+
+- Multi-step agent workflows
+- Agent-to-agent communication
+- Long-term memory across sessions
+- Streaming responses
+- Authentication and user accounts
+- Dashboard analytics
+
+## 👨‍💻 Author
+
+Built by Washifur Rahman.
 
 ## License
 
