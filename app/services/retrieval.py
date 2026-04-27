@@ -25,7 +25,7 @@ def search_knowledge(agent_id: str, query: str, match_count: int = 5):
         return []
 
 
-def get_recent_messages(conversation_id: str, limit: int = 12):
+def get_recent_messages(conversation_id: str, limit: int = 6):
     try:
         result = (
             supabase.table("messages")

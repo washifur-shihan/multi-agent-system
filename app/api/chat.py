@@ -69,14 +69,29 @@ async def chat(request: Request):
     )
 
     last_agent_slug = conversation.get("agent_slug")
+    current_agent_slug = (
+        last_agent_slug
+        if last_agent_slug and last_agent_slug != "master"
+        else None
+    )
+
     transferred_from_master = False
 
-    if last_agent_slug and last_agent_slug != "master" and req.channel == "voice":
-        agent = get_agent_by_slug(last_agent_slug)
-        route_reason = "Continuing with previous agent"
-    else:
-        routed_agent, route_reason = route_to_agent(req.message)
+    routed_agent, route_reason = route_to_agent(req.message)
 
+    if current_agent_slug:
+        if routed_agent and routed_agent["slug"] != current_agent_slug:
+            old_agent = get_agent_by_slug(current_agent_slug)
+            agent = routed_agent
+            transferred_from_master = True
+            route_reason = (
+                f"User requested a switch from {old_agent['name']} "
+                f"to {agent['name']}. {route_reason}"
+            )
+        else:
+            agent = get_agent_by_slug(current_agent_slug)
+            route_reason = "Continuing with previous agent"
+    else:
         if routed_agent is None:
             agent = get_agent_by_slug("master")
         else:
@@ -94,7 +109,10 @@ async def chat(request: Request):
 
     save_message(conversation["id"], "user", req.message)
 
-    knowledge_hits = search_knowledge(agent["id"], req.message)
+    knowledge_hits = []
+
+    if agent["slug"] != "master":
+        knowledge_hits = search_knowledge(agent["id"], req.message)
     recent = get_recent_messages(conversation["id"])
 
     department_answer = generate_answer(
@@ -110,6 +128,7 @@ async def chat(request: Request):
 
     if transferred_from_master:
         final_answer = (
+            "I’ll let the Master Agent handle the transfer.\n\n"
             f"This is handled by {agent['name']}. "
             f"Let me direct the call to them.\n\n"
             f"{department_answer}"
