@@ -8,14 +8,21 @@ client = OpenAI(api_key=settings.OPENAI_API_KEY)
 def _format_recent_messages(recent_messages):
     if not recent_messages:
         return "No recent messages."
-    return "\n".join(f"{m['role']}: {m['content']}" for m in recent_messages)
-
+    return "\n".join(
+        f"{m['role']}: {m['content'][:300]}"
+        for m in recent_messages[-4:]
+    )
 
 def _format_knowledge_context(ctx):
     if not ctx:
         return "No matching knowledge."
-    return "\n\n".join(x["content"] for x in ctx)
 
+    chunks = []
+    for x in ctx[:3]:
+        content = x.get("content", "")
+        chunks.append(content[:700])
+
+    return "\n\n".join(chunks)
 
 def generate_answer(
     user_message,
@@ -74,6 +81,7 @@ Knowledge:
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.3,
+        max_tokens=300,
     )
 
     return res.choices[0].message.content or ""
