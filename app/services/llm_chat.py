@@ -68,7 +68,7 @@ Knowledge:
 """
 
     res = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-nano-2025-04-14",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
