@@ -1,0 +1,444 @@
+{% extends "base.html" %}
+
+{% block title %}{{ agent.name }} | Aurora Agent AI{% endblock %}
+
+{% block content %}
+<section class="workspace-layout">
+  <!-- Left Sidebar: Agent Switcher, Details & PDF Knowledge Upload -->
+  <aside class="workspace-sidebar">
+    <div class="sidebar-card agent-switcher-card">
+      <div class="sidebar-label">Switch Agent</div>
+      <div class="switcher-pills">
+        {% for item in all_agents %}
+        <a
+          href="/a/{{ item.slug }}"
+          class="switcher-pill {% if item.slug == agent.slug %}active{% endif %}"
+          title="{{ item.name }}"
+        >
+          <span>{{ item.icon or "🤖" }}</span>
+          <span>{{ item.name.replace('Aurora ', '') }}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="sidebar-card agent-profile-card accent-{{ agent.accent or 'aurora' }}">
+      <div class="profile-header">
+        <div class="agent-icon large">{{ agent.icon or "✨" }}</div>
+        <div>
+          <span class="agent-badge">{{ agent.badge or ("Master Router" if agent.is_master else "Specialist") }}</span>
+          <h1 class="profile-name">{{ agent.name }}</h1>
+        </div>
+      </div>
+
+      <p class="profile-desc">{{ agent.description }}</p>
+
+      <label class="toggle-row" title="Automatically hand off to another department if your question belongs to a different specialist">
+        <input type="checkbox" id="autoRouteToggle" checked />
+        <span class="toggle-text">Smart Cross-Agent Handoff</span>
+      </label>
+    </div>
+
+    <div class="sidebar-card kb-card">
+      <div class="kb-header">
+        <div>
+          <h3 class="kb-title">📄 Knowledge Base (RAG)</h3>
+          <p class="kb-subtitle">Upload PDFs for {{ agent.name }} vector search</p>
+        </div>
+        <span id="kbCountBadge" class="kb-count">{{ documents|length }}</span>
+      </div>
+
+      <form id="kbUploadForm" class="kb-upload-form">
+        <label for="kbFileInput" class="file-dropzone" id="fileDropzone">
+          <span class="dropzone-icon">⬆️</span>
+          <span id="fileNameDisplay" class="dropzone-text">Select PDF document...</span>
+          <input id="kbFileInput" type="file" name="file" accept="application/pdf,.pdf" required hidden />
+        </label>
+        <button type="submit" id="kbUploadBtn" class="btn btn-secondary full-width">
+          Upload &amp; Embed PDF
+        </button>
+        <div id="kbStatusMsg" class="kb-status-msg" aria-live="polite"></div>
+      </form>
+
+      <div class="kb-doc-list-wrap">
+        <div class="sidebar-label">Indexed Documents</div>
+        <ul id="kbDocList" class="kb-doc-list">
+          {% if documents %}
+            {% for doc in documents %}
+            <li class="kb-doc-item">
+              <span class="doc-icon">📑</span>
+              <span class="doc-name" title="{{ doc.file_name }}">{{ doc.file_name }}</span>
+            </li>
+            {% endfor %}
+          {% else %}
+            <li id="kbEmptyState" class="kb-empty">No PDFs uploaded for this agent yet.</li>
+          {% endif %}
+        </ul>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Right Panel: Interactive Chat & Routing Telemetry -->
+  <section class="chat-panel">
+    <header class="chat-header">
+      <div class="chat-header-left">
+        <span class="active-indicator"></span>
+        <div>
+          <h2 id="activeAgentTitle" class="chat-title">{{ agent.name }}</h2>
+          <p id="routeStatusText" class="chat-subtitle">
+            {% if agent.is_master %}
+              Auto-routing enabled across Finance, HR, Sales &amp; Operations
+            {% else %}
+              Dedicated domain session • Vector RAG active
+            {% endif %}
+          </p>
+        </div>
+      </div>
+
+      <div class="chat-header-actions">
+        <button id="resetChatBtn" type="button" class="btn btn-ghost btn-sm" title="Clear session history and start fresh">
+          ↺ New Session
+        </button>
+      </div>
+    </header>
+
+    {% if agent.sample_prompts %}
+    <div class="starter-prompts">
+      <span class="starter-label">Try asking:</span>
+      <div class="starter-chips">
+        {% for prompt in agent.sample_prompts %}
+        <button type="button" class="prompt-chip" data-prompt="{{ prompt }}">
+          {{ prompt }}
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div id="chatMessages" class="chat-messages">
+      <div class="message assistant">
+        <div class="message-meta">
+          <span class="msg-icon">{{ agent.icon or "✨" }}</span>
+          <strong class="msg-author">{{ agent.name }}</strong>
+          <span class="msg-tag">Ready</span>
+        </div>
+        <div class="message-body">
+          <p>Hello! I am <strong>{{ agent.name }}</strong>. How can I assist you today?</p>
+        </div>
+      </div>
+    </div>
+
+    <form id="chatForm" class="chat-form">
+      <input
+        id="messageInput"
+        type="text"
+        placeholder="Ask {{ agent.name }} anything..."
+        autocomplete="off"
+        required
+      />
+      <button type="submit" id="sendBtn" class="btn btn-primary">
+        <span>Send</span>
+        <span class="send-arrow">→</span>
+      </button>
+    </form>
+  </section>
+</section>
+
+<script>
+  const CURRENT_AGENT_SLUG = "{{ agent.slug }}";
+  const CURRENT_AGENT_ID = "{{ agent.id }}";
+  const CURRENT_AGENT_NAME = "{{ agent.name }}";
+  const CURRENT_AGENT_ICON = "{{ agent.icon or '✨' }}";
+
+  const chatForm = document.getElementById("chatForm");
+  const messageInput = document.getElementById("messageInput");
+  const chatMessages = document.getElementById("chatMessages");
+  const autoRouteToggle = document.getElementById("autoRouteToggle");
+  const routeStatusText = document.getElementById("routeStatusText");
+  const activeAgentTitle = document.getElementById("activeAgentTitle");
+  const resetChatBtn = document.getElementById("resetChatBtn");
+
+  const customerKey = localStorage.getItem("aurora_customer_key") || crypto.randomUUID();
+  localStorage.setItem("aurora_customer_key", customerKey);
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function formatMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    html = html.replace(/\*(.+?)\*/g, "<em>$1</em>");
+    html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+    html = html.replace(/^&gt; (.+)$/gm, "<blockquote>$1</blockquote>");
+    html = html.replace(/\n/g, "<br>");
+    return html;
+  }
+
+  function addMessage({ role, text, agentName = null, agentIcon = null, routeReason = null, knowledgeUsed = 0 }) {
+    const div = document.createElement("div");
+    div.className = `message ${role}`;
+
+    if (role === "user") {
+      div.innerHTML = `
+        <div class="message-meta user-meta">
+          <strong class="msg-author">You</strong>
+        </div>
+        <div class="message-body"><p>${escapeHtml(text)}</p></div>
+      `;
+    } else {
+      const icon = agentIcon || CURRENT_AGENT_ICON;
+      const author = agentName || CURRENT_AGENT_NAME;
+      const badges = [];
+      if (routeReason) {
+        badges.push(`<span class="msg-tag">${escapeHtml(routeReason)}</span>`);
+      }
+      if (knowledgeUsed > 0) {
+        badges.push(`<span class="msg-tag rag-tag">📚 ${knowledgeUsed} RAG chunk${knowledgeUsed > 1 ? 's' : ''}</span>`);
+      }
+      div.innerHTML = `
+        <div class="message-meta">
+          <span class="msg-icon">${icon}</span>
+          <strong class="msg-author">${escapeHtml(author)}</strong>
+          ${badges.join("")}
+        </div>
+        <div class="message-body"><p>${formatMarkdown(text)}</p></div>
+      `;
+    }
+
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+    return div;
+  }
+
+  async function sendChatMessage(messageText) {
+    const message = messageText.trim();
+    if (!message) return;
+
+    addMessage({ role: "user", text: message });
+    messageInput.value = "";
+
+    const loadingDiv = document.createElement("div");
+    loadingDiv.className = "message assistant loading";
+    loadingDiv.innerHTML = `
+      <div class="message-meta">
+        <span class="msg-icon">${CURRENT_AGENT_ICON}</span>
+        <strong class="msg-author">Aurora Neural Router</strong>
+      </div>
+      <div class="message-body"><p>Synthesizing response...</p></div>
+    `;
+    chatMessages.appendChild(loadingDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    try {
+      const res = await fetch("/chat/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_key: customerKey,
+          message: message,
+          channel: "chat",
+          agent_slug: CURRENT_AGENT_SLUG,
+          auto_route: autoRouteToggle ? autoRouteToggle.checked : true
+        })
+      });
+
+      const data = await res.json();
+      loadingDiv.remove();
+
+      if (!res.ok) {
+        addMessage({
+          role: "assistant",
+          text: data.detail || "Something went wrong while processing your request.",
+          agentName: CURRENT_AGENT_NAME,
+          agentIcon: "⚠️"
+        });
+        return;
+      }
+
+      if (data.agent_name) {
+        activeAgentTitle.textContent = data.agent_name;
+      }
+      if (data.route_reason) {
+        routeStatusText.textContent = data.route_reason;
+      }
+
+      addMessage({
+        role: "assistant",
+        text: data.reply,
+        agentName: data.agent_name || CURRENT_AGENT_NAME,
+        agentIcon: data.agent_icon || CURRENT_AGENT_ICON,
+        routeReason: data.route_reason,
+        knowledgeUsed: data.knowledge_used || 0
+      });
+    } catch (err) {
+      loadingDiv.remove();
+      addMessage({
+        role: "assistant",
+        text: "Unable to reach Aurora server. Please check your connection and try again.",
+        agentName: CURRENT_AGENT_NAME,
+        agentIcon: "⚠️"
+      });
+    }
+  }
+
+  chatForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    sendChatMessage(messageInput.value);
+  });
+
+  // Starter prompt chips
+  document.querySelectorAll(".prompt-chip").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      const prompt = chip.getAttribute("data-prompt");
+      if (prompt) sendChatMessage(prompt);
+    });
+  });
+
+  // Reset conversation button
+  resetChatBtn.addEventListener("click", async () => {
+    try {
+      await fetch("/chat/reset", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer_key: customerKey,
+          channel: "chat",
+          agent_slug: CURRENT_AGENT_SLUG
+        })
+      });
+      chatMessages.innerHTML = "";
+      activeAgentTitle.textContent = CURRENT_AGENT_NAME;
+      routeStatusText.textContent = "Session reset • Ready for new conversation";
+      addMessage({
+        role: "assistant",
+        text: `Session cleared! I'm **${CURRENT_AGENT_NAME}**. What would you like to work on next?`,
+        agentName: CURRENT_AGENT_NAME,
+        agentIcon: CURRENT_AGENT_ICON,
+        routeReason: "Fresh Session"
+      });
+    } catch (e) {
+      console.error("Failed to reset session:", e);
+    }
+  });
+
+  // Knowledge Base PDF Upload
+  const kbUploadForm = document.getElementById("kbUploadForm");
+  const kbFileInput = document.getElementById("kbFileInput");
+  const fileNameDisplay = document.getElementById("fileNameDisplay");
+  const kbStatusMsg = document.getElementById("kbStatusMsg");
+  const kbDocList = document.getElementById("kbDocList");
+  const kbCountBadge = document.getElementById("kbCountBadge");
+  const kbUploadBtn = document.getElementById("kbUploadBtn");
+
+  kbFileInput.addEventListener("change", () => {
+    if (kbFileInput.files && kbFileInput.files[0]) {
+      fileNameDisplay.textContent = kbFileInput.files[0].name;
+    } else {
+      fileNameDisplay.textContent = "Select PDF document...";
+    }
+  });
+
+  kbUploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!kbFileInput.files || !kbFileInput.files[0]) return;
+
+    const file = kbFileInput.files[0];
+    const formData = new FormData();
+    formData.append("file", file);
+
+    kbUploadBtn.disabled = true;
+    kbStatusMsg.className = "kb-status-msg info";
+    kbStatusMsg.textContent = "Uploading & generating vector embeddings...";
+
+    try {
+      const res = await fetch(`/knowledge/upload/${CURRENT_AGENT_SLUG}`, {
+        method: "POST",
+        body: formData
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        kbStatusMsg.className = "kb-status-msg error";
+        kbStatusMsg.textContent = data.detail || "Upload failed.";
+      } else {
+        kbStatusMsg.className = "kb-status-msg success";
+        kbStatusMsg.textContent = `✓ Indexed "${data.file_name}"`;
+        const emptyEl = document.getElementById("kbEmptyState");
+        if (emptyEl) emptyEl.remove();
+
+        const li = document.createElement("li");
+        li.className = "kb-doc-item";
+        li.innerHTML = `<span class="doc-icon">📑</span><span class="doc-name">${escapeHtml(data.file_name)}</span>`;
+        kbDocList.prepend(li);
+        kbCountBadge.textContent = String(kbDocList.querySelectorAll(".kb-doc-item").length);
+        kbFileInput.value = "";
+        fileNameDisplay.textContent = "Select PDF document...";
+      }
+    } catch (err) {
+      kbStatusMsg.className = "kb-status-msg error";
+      kbStatusMsg.textContent = "Error uploading file.";
+    } finally {
+      kbUploadBtn.disabled = false;
+    }
+  });
+</script>
+
+{% if vapi_public_key and vapi_assistant_id %}
+<script>
+  var vapiInstance = null;
+  const assistant = "{{ vapi_assistant_id }}";
+  const apiKey = "{{ vapi_public_key }}";
+
+  const buttonConfig = {
+    position: "bottom-right",
+    offset: "32px",
+    width: "58px",
+    height: "58px",
+    idle: {
+      color: "rgb(99, 102, 241)",
+      type: "round",
+      title: "Talk to {{ agent.name }}",
+      subtitle: "Aurora Voice AI",
+      icon: "https://unpkg.com/lucide-static@latest/icons/phone.svg"
+    },
+    loading: {
+      color: "rgb(139, 92, 246)",
+      type: "round",
+      title: "Connecting...",
+      subtitle: "Please wait",
+      icon: "https://unpkg.com/lucide-static@latest/icons/loader.svg"
+    },
+    active: {
+      color: "rgb(239, 68, 68)",
+      type: "round",
+      title: "Voice Call Active",
+      subtitle: "Click to hang up",
+      icon: "https://unpkg.com/lucide-static@latest/icons/phone-off.svg"
+    }
+  };
+
+  (function (d, t) {
+    const g = d.createElement(t);
+    const s = d.getElementsByTagName(t)[0];
+    g.src = "https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js";
+    g.defer = true;
+    g.async = true;
+    s.parentNode.insertBefore(g, s);
+    g.onload = function () {
+      if (window.vapiSDK) {
+        vapiInstance = window.vapiSDK.run({
+          apiKey: apiKey,
+          assistant: assistant,
+          config: buttonConfig
+        });
+      }
+    };
+  })(document, "script");
+</script>
+{% endif %}
+{% endblock %}

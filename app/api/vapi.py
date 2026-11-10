@@ -1,23 +1,21 @@
 from fastapi import APIRouter
-from pydantic import BaseModel
-from app.services.retrieval import search_menu
+from app.models.schemas import KnowledgeSearchRequest, VapiEventRequest
+from app.services.agents import get_agent_by_slug
+from app.services.retrieval import search_knowledge
 
 router = APIRouter()
 
 
-class KnowledgeSearchRequest(BaseModel):
-    query: str
-
-
 @router.post("/knowledge/search")
 async def knowledge_search(payload: KnowledgeSearchRequest):
-    results = search_menu(payload.query, match_count=5)
+    agent = get_agent_by_slug(payload.agent_slug) or get_agent_by_slug("master")
+    results = search_knowledge(agent["id"], payload.query, match_count=payload.match_count)
 
     documents = [
         {
-            "title": f"Menu chunk {i + 1}",
+            "title": f"{agent['name']} Knowledge #{i + 1}",
             "content": row["content"],
-            "metadata": row.get("metadata", {})
+            "similarity": row.get("similarity", 0.9),
         }
         for i, row in enumerate(results)
     ]
@@ -25,14 +23,9 @@ async def knowledge_search(payload: KnowledgeSearchRequest):
     return {"documents": documents}
 
 
-class VapiEventRequest(BaseModel):
-    type: str | None = None
-    message: str | None = None
-
-
 @router.post("/events")
 async def vapi_events(payload: VapiEventRequest):
     return {
         "ok": True,
-        "received": payload.model_dump()
+        "received": payload.model_dump(),
     }

@@ -1,272 +1,125 @@
-# 🧠 Multi-Agent System (Finance • HR • Sales • Operations)
+# ✦ Aurora Agent AI
 
-A production-ready multi-agent AI system built with FastAPI, Supabase, OpenAI, and Vapi. It routes user queries to specialized department agents through a Master Agent and supports chat, voice, PDF knowledge ingestion, embeddings, and retrieval-augmented generation.
+**Aurora Agent AI** is a full-stack multi-agent intelligence system built with **FastAPI**, **Jinja2**, **OpenAI**, **Supabase + pgvector**, and **Vapi Voice**. It routes user queries through **Aurora Master** to specialized domain agents (**Aurora Finance**, **Aurora HR**, **Aurora Sales**, and **Aurora Operations**) with Retrieval-Augmented Generation (RAG), PDF knowledge ingestion, and unified Web + Voice conversation memory — all served from a single command.
 
-## 🚀 Features
+---
 
-### 🧠 Multi-Agent Architecture
+## ✨ Key Capabilities
 
-- Master Agent routes user queries to the right department
-- Finance Agent handles payroll, invoices, expenses, budgets, and reimbursements
-- HR Agent handles hiring, leave, attendance, employee policies, and benefits
-- Sales Agent handles leads, CRM, quotes, follow-ups, and deals
-- Operations Agent handles logistics, SOPs, vendors, inventory, and daily operations
+### 🧠 Neural Multi-Agent Orchestration
+- **Aurora Master (`master`)**: Central orchestrator that analyzes intent and routes requests to the right specialist or handles general inquiries.
+- **Aurora Finance (`finance`)**: Payroll schedules, vendor invoices, expense reimbursements, budgets, tax compliance, and financial reporting.
+- **Aurora HR (`hr`)**: Talent acquisition, PTO & leave balances, attendance, onboarding checklists, benefits, and workplace policies.
+- **Aurora Sales (`sales`)**: Lead qualification, CRM pipeline management, custom pricing quotes, proposals, follow-ups, and deal closing.
+- **Aurora Operations (`operations`)**: Supply chain logistics, warehouse inventory, vendor SLAs, SOPs, and fulfillment workflows.
 
-### 🔍 Retrieval-Augmented Generation (RAG)
+### 📚 Retrieval-Augmented Generation (RAG)
+- **Built-in UI & API PDF Upload**: Upload domain PDFs directly from each agent's sidebar in the Jinja2 UI (`POST /knowledge/upload/{agent_slug}`).
+- **Smart Chunking & Embeddings**: Extracts PDF text, splits along natural paragraph/sentence boundaries, and generates `text-embedding-3-small` vectors.
+- **Resilient Dual-Mode Storage**: Uses **Supabase Postgres + pgvector** when configured, and automatically falls back to an **in-memory vector & session store** for instant local development without external dependencies.
 
-- Upload PDFs per agent
-- Automatic PDF text extraction, chunking, and embeddings
-- Semantic search through Supabase Postgres + pgvector
-- Grounded LLM responses using department-specific knowledge
+### 🎨 Unified Jinja2 Command Center (Zero Separate Frontend Server)
+- Everything runs with **one command** (`uvicorn app.main:app --reload`).
+- Modern Aurora dark glassmorphism UI with:
+  - One-click **Agent Switcher** & **Starter Prompt Chips**
+  - Live **Routing Telemetry Badges** & **RAG Chunk Counters**
+  - Interactive **PDF Knowledge Base Uploader**
+  - **Session Reset** (`POST /chat/reset`) & **Conversation History** (`GET /chat/history`)
 
-### 🎙️ Voice Integration (Vapi)
+### 🎙️ Real-Time Voice Integration (Vapi)
+- Shared `/chat/` endpoint handles both Web UI chat and Vapi voice transcripts.
+- Embedded Vapi voice call button automatically activates when `VAPI_PUBLIC_KEY` and `VAPI_ASSISTANT_ID` are set in `.env`.
 
-- Real-time voice assistant support
-- Vapi calls the backend `/chat/` endpoint
-- Dynamic routing through the Master Agent
-- Response mapping through the `reply` field
-
-### 💬 Chat UI
-
-- Clean Jinja2 frontend
-- Agent-specific chat pages
-- Session-based conversation memory
-- Shared chat endpoint for web and voice channels
-
-## 🏗️ Tech Stack
-
-- Backend: FastAPI
-- Database: Supabase Postgres + pgvector
-- LLM: OpenAI GPT-4o-mini
-- Voice: Vapi
-- Frontend: Jinja2 + vanilla JavaScript
-- Storage: Supabase Storage
-- PDF Processing: pypdf
+---
 
 ## 📂 Project Structure
 
 ```text
-app/
-├── api/
-│   ├── chat.py          # Main chat endpoint for Vapi + UI
-│   ├── knowledge.py     # PDF upload endpoint
-│   ├── orders.py        # Orders route module
-│   ├── vapi.py          # Vapi route module
-│   └── vapi_dynamic.py  # Dynamic Vapi route module
-│
-├── services/
-│   ├── agents.py        # Agent lookup, prompts, and Vapi widget config
-│   ├── router.py        # Master routing logic
-│   ├── retrieval.py     # Vector search + conversation retrieval
-│   ├── llm_chat.py      # LLM response generation
-│   ├── memory.py        # Customers, conversations, and messages
-│   └── pdf_ingest.py    # PDF → chunks → embeddings
-│
-├── templates/
-│   ├── base.html
-│   ├── home.html
-│   └── order.html       # Agent chat UI
-│
-├── static/
-│   └── css/style.css
-│
-├── db/
-│   └── supabase.py
-│
-├── config.py
-└── main.py
+aurora-agent-ai/
+├── app/
+│   ├── api/
+│   │   ├── chat.py          # Unified Web + Vapi chat, history, and session reset endpoints
+│   │   ├── knowledge.py     # PDF knowledge upload and document listing endpoints
+│   │   └── vapi.py          # Vapi knowledge search & webhook event endpoints
+│   ├── db/
+│   │   └── supabase.py      # Resilient Supabase client initialization
+│   ├── models/
+│   │   └── schemas.py       # Pydantic request/response schemas
+│   ├── services/
+│   │   ├── agents.py        # Aurora agent definitions, prompts, and Supabase lookup
+│   │   ├── llm.py           # OpenAI embeddings with deterministic local fallback
+│   │   ├── llm_chat.py      # Grounded LLM synthesis with RAG & routing context
+│   │   ├── memory.py        # Customer, conversation & message persistence (Supabase + local fallback)
+│   │   ├── pdf_ingest.py    # PDF extraction → smart chunking → vector embeddings
+│   │   ├── retrieval.py     # pgvector RPC search + local cosine similarity fallback
+│   │   └── router.py        # Word-boundary & phrase-weighted intent router
+│   ├── static/
+│   │   └── css/style.css    # Aurora dark glassmorphism stylesheet
+│   ├── templates/
+│   │   ├── base.html        # Master layout with live system status indicators
+│   │   ├── home.html        # Command Center agent grid & architecture overview
+│   │   └── agent.html       # Interactive Agent Workspace (Chat + RAG PDF Upload + Voice)
+│   ├── utils/
+│   │   └── text.py          # Text normalization and boundary-aware chunking
+│   ├── config.py            # Environment settings and capability detection
+│   └── main.py              # FastAPI application entrypoint
+├── .env.example             # Sample environment configuration
+├── schema.sql               # Complete Supabase Postgres + pgvector SQL setup & seed
+├── requirements.txt         # Python dependencies
+└── README.md
 ```
 
-## ⚙️ Setup
+---
 
-### 1. Clone and install
+## ⚡ Quick Start (Single Command)
+
+### 1. Create and activate a virtual environment
 
 ```bash
-git clone <your-repo>
-cd multi-agent-system
-python -m venv venv
-```
-
-Activate the virtual environment.
-
-Windows PowerShell:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-Windows CMD:
-
-```bat
-venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
+python3 -m venv venv
 source venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 2. Environment variables
+### 2. Configure environment variables (optional for local demo)
 
-Create a `.env` file in the project root:
-
-```env
-SUPABASE_URL=your_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-SUPABASE_BUCKET=knowledge-files
-
-OPENAI_API_KEY=your_openai_key
-
-VAPI_PUBLIC_KEY=your_public_key
-VAPI_ASSISTANT_ID=your_assistant_id
+```bash
+cp .env.example .env
 ```
 
-Optional:
+Edit `.env` with your keys:
+- `OPENAI_API_KEY`: Enables live `gpt-4o-mini` completions and `text-embedding-3-small` vectors.
+- `SUPABASE_URL` & `SUPABASE_SERVICE_ROLE_KEY`: Enables persistent Postgres + `pgvector` storage (run `schema.sql` in the Supabase SQL Editor).
+- `VAPI_PUBLIC_KEY` & `VAPI_ASSISTANT_ID`: Enables the floating real-time voice widget.
 
-```env
-VAPI_API_KEY=your_vapi_api_key
-ELEVENLABS_API_KEY=your_elevenlabs_api_key
-```
+*(Note: Aurora Agent AI also boots and runs cleanly in local memory mode even before `.env` is configured!)*
 
-### 3. Run the server
+### 3. Start Aurora Agent AI
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open:
+Open **[http://127.0.0.1:8000](http://127.0.0.1:8000)** in your browser.
 
-```text
-http://127.0.0.1:8000
-```
-
-## 🗄️ Database Setup (Supabase)
-
-The app expects Supabase tables for:
-
-- `agents`
-- `customers`
-- `conversations`
-- `messages`
-- `knowledge_documents`
-- `knowledge_chunks`
-
-It also expects a vector search RPC function:
-
-```text
-match_knowledge_chunks(...)
-```
-
-Use a Supabase Storage bucket named:
-
-```text
-knowledge-files
-```
-
-## 🧠 How Routing Works
-
-```text
-User input
-   ↓
-Master Agent (router.py)
-   ↓
-Select department agent
-   ↓
-Retrieve relevant knowledge from Supabase vector search
-   ↓
-Generate response with OpenAI
-   ↓
-Save conversation memory
-```
-
-Available department routes:
-
-| Query type | Routed agent |
-| --- | --- |
-| Payroll, invoices, expenses, reimbursements | Finance |
-| Hiring, leave, attendance, policies, benefits | HR |
-| Leads, CRM, pricing, follow-ups, deals | Sales |
-| Logistics, SOPs, vendors, inventory | Operations |
-
-## 🎙️ Vapi Integration
-
-Configure a Vapi tool with:
-
-```text
-Method: POST
-URL: https://your-domain.com/chat/
-```
-
-Request body:
-
-```json
-{
-  "customer_key": "voice-user",
-  "message": "{{transcript}}",
-  "channel": "voice",
-  "agent_slug": "master"
-}
-```
-
-Response mapping:
-
-```text
-reply
-```
-
-## 📄 Knowledge Upload
-
-Upload PDFs for an agent:
-
-```text
-POST /knowledge/upload/{agent_id}
-```
-
-Ingestion flow:
-
-```text
-PDF → text extraction → chunks → embeddings → Supabase vector storage
-```
+---
 
 ## 🌐 Main Routes
 
-- `GET /` - agent selection page
-- `GET /a/{slug}` - agent chat page
-- `POST /chat/` - chat endpoint for UI and Vapi
-- `POST /knowledge/upload/{agent_id}` - upload and ingest a PDF for an agent
-- `GET /health` - health check
-- `GET /docs` - FastAPI Swagger documentation
+| Route | Method | Description |
+| :--- | :--- | :--- |
+| `/` | `GET` | Aurora Command Center (agent overview & status) |
+| `/a/{slug}` | `GET` | Agent Workspace (`master`, `finance`, `hr`, `sales`, `operations`) |
+| `/chat/` | `POST` | Main chat & voice routing endpoint |
+| `/chat/history` | `GET` | Fetch current session message history |
+| `/chat/reset` | `POST` | Reset active conversation session |
+| `/knowledge/{agent}` | `GET` | List indexed PDF documents for an agent |
+| `/knowledge/upload/{agent}` | `POST` | Upload & embed a PDF into an agent's knowledge base |
+| `/health` | `GET` | Health & integration status check |
+| `/docs` | `GET` | Interactive FastAPI Swagger UI |
 
-## 🧪 Example Queries
-
-| Input | Expected agent |
-| --- | --- |
-| "I need help with payroll" | Finance |
-| "How many leave days do I have?" | HR |
-| "Follow up with this lead" | Sales |
-| "Inventory is low" | Operations |
-
-
-## 🔥 Future Improvements
-
-- Multi-step agent workflows
-- Agent-to-agent communication
-- Long-term memory across sessions
-- Streaming responses
-- Authentication and user accounts
-- Dashboard analytics
+---
 
 ## 👨‍💻 Author
 
-Built by Washifur Rahman.
-
-## License
-
-Copyright (c) 2026 Washifur Rahman. All rights reserved.
+Designed & built by **Washifur Rahman**.
