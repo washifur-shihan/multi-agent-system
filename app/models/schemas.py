@@ -35,3 +35,4 @@ class KnowledgeSearchRequest(BaseModel):
 class VapiEventRequest(BaseModel):
     type: Optional[str] = None
     message: Optional[Any] = None
+

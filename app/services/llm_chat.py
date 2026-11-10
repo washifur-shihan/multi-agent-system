@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional, Tuple
 from app.config import settings
 from app.services.agents import build_agent_prompt
 
@@ -6,6 +6,39 @@ try:
     from openai import OpenAI
 except ImportError:
     OpenAI = None  # type: ignore
+
+
+def _get_llm_providers() -> list[Tuple[str, Any, str]]:
+    """Return ordered list of configured (provider_name, client, model) for automatic failover."""
+    if OpenAI is None:
+        return []
+
+    providers: list[Tuple[str, Any, str]] = []
+    if settings.has_mistral:
+        providers.append(
+            (
+                "Mistral AI",
+                OpenAI(api_key=settings.MISTRAL_API_KEY, base_url=settings.MISTRAL_BASE_URL),
+                settings.MISTRAL_MODEL,
+            )
+        )
+    if settings.has_groq:
+        providers.append(
+            (
+                "Groq",
+                OpenAI(api_key=settings.GROQ_API_KEY, base_url=settings.GROQ_BASE_URL),
+                settings.GROQ_MODEL,
+            )
+        )
+    if settings.has_openai:
+        providers.append(
+            (
+                "OpenAI",
+                OpenAI(api_key=settings.OPENAI_API_KEY),
+                settings.OPENAI_MODEL,
+            )
+        )
+    return providers
 
 
 def _format_recent_messages(recent_messages: list[dict]) -> str:
@@ -37,7 +70,7 @@ def _fallback_aurora_answer(
     route_reason: Optional[str],
     transferred_from_master: bool,
 ) -> str:
-    """Provides a structured offline response when OPENAI_API_KEY is not yet configured."""
+    """Provides a structured offline response when no LLM API key is configured yet."""
     header = (
         f"Hello! I'm **{agent['name']}** ({agent.get('badge', 'Aurora Specialist')})."
     )
@@ -60,7 +93,7 @@ def _fallback_aurora_answer(
 
     setup_tip = (
         "\n\n---\n"
-        "💡 *Tip: Add your `OPENAI_API_KEY` to `.env` to enable live GPT-4o-mini reasoning for Aurora Agent AI.*"
+        "💡 *Tip: Add a free `MISTRAL_API_KEY` (from console.mistral.ai) to your `.env` file to enable live Mistral AI reasoning & embeddings!*"
     )
     return f"{header}{routing_note}{kb_section}{setup_tip}"
 
@@ -75,7 +108,8 @@ def generate_answer(
     route_reason: Optional[str] = None,
     transferred_from_master: bool = False,
 ) -> str:
-    if not settings.has_openai or OpenAI is None:
+    providers = _get_llm_providers()
+    if not providers:
         return _fallback_aurora_answer(
             user_message=user_message,
             knowledge_context=knowledge_context,
@@ -84,7 +118,6 @@ def generate_answer(
             transferred_from_master=transferred_from_master,
         )
 
-    client = OpenAI(api_key=settings.OPENAI_API_KEY)
     system_prompt = build_agent_prompt(agent)
 
     transfer_instruction = ""
@@ -120,23 +153,25 @@ User Message:
 {user_message}
 """.strip()
 
-    try:
-        res = client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.3,
-            max_tokens=450,
-        )
-        return res.choices[0].message.content or ""
-    except Exception as exc:
-        print(f"⚠️ OpenAI completion error: {exc}")
-        return _fallback_aurora_answer(
-            user_message=user_message,
-            knowledge_context=knowledge_context,
-            agent=agent,
-            route_reason=route_reason,
-            transferred_from_master=transferred_from_master,
-        )
+    for provider_name, client, model in providers:
+        try:
+            res = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                temperature=0.3,
+                max_tokens=500,
+            )
+            return res.choices[0].message.content or ""
+        except Exception as exc:
+            print(f"⚠️ {provider_name} completion error ({exc}), trying next provider if available...")
+
+    return _fallback_aurora_answer(
+        user_message=user_message,
+        knowledge_context=knowledge_context,
+        agent=agent,
+        route_reason=route_reason,
+        transferred_from_master=transferred_from_master,
+    )

@@ -31,9 +31,9 @@
 
       {% if system is defined %}
       <div class="status-cluster">
-        <span class="status-pill {% if system.openai_connected %}online{% else %}standby{% endif %}" title="LLM Engine ({{ system.model }})">
+        <span class="status-pill {% if system.llm_connected %}online{% else %}standby{% endif %}" title="Active LLM Engine ({{ system.llm_provider|upper }}: {{ system.model }})">
           <span class="dot"></span>
-          {{ system.model if system.openai_connected else "LLM Standby" }}
+          {{ (system.llm_provider|capitalize ~ " • " ~ system.model) if system.llm_connected else "Mistral / LLM Standby" }}
         </span>
         <span class="status-pill {% if system.supabase_connected %}online{% else %}standby{% endif %}" title="Vector RAG Storage">
           <span class="dot"></span>
@@ -50,7 +50,7 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <span><strong>Aurora Agent AI</strong> • Multi-Agent Neural Orchestration &amp; Vector RAG</span>
+      <span><strong>Aurora Agent AI</strong> • Powered by Mistral AI &amp; Vector RAG</span>
       <span>Crafted by Washifur Rahman</span>
     </div>
   </footer>

@@ -134,3 +134,4 @@ on conflict (slug) do update set
     prompt_instructions = excluded.prompt_instructions,
     is_master = excluded.is_master,
     is_active = excluded.is_active;
+

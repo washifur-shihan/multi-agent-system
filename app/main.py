@@ -16,7 +16,7 @@ from app.api.vapi import router as vapi_router
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="Aurora Agent AI — Personal Multi-Agent Intelligence System with RAG, Smart Routing, and Voice.",
+    description="Aurora Agent AI — Personal Multi-Agent Intelligence System powered by Mistral AI, RAG, Smart Routing, and Voice.",
 )
 
 templates = Jinja2Templates(directory="app/templates")
@@ -27,10 +27,13 @@ def _system_status() -> dict:
     return {
         "app_name": settings.APP_NAME,
         "version": settings.APP_VERSION,
+        "llm_connected": settings.has_llm,
+        "llm_provider": settings.active_llm_provider,
+        "model": settings.active_llm_model,
+        "mistral_connected": settings.has_mistral,
         "openai_connected": settings.has_openai,
         "supabase_connected": settings.has_supabase,
         "vapi_connected": settings.has_vapi,
-        "model": settings.OPENAI_MODEL,
     }
 
 
