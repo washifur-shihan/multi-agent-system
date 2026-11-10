@@ -1,35 +1,87 @@
 {% extends "base.html" %}
 
-{% block title %}Agents | Multi Agent System{% endblock %}
+{% block title %}Aurora Agent AI — Multi-Agent Command Center{% endblock %}
 
 {% block content %}
 <section class="hero">
-  <h1>Company Multi-Agent Assistant</h1>
-  <p>
-    Choose a department agent or start with the Master Agent to automatically route your question.
+  <div class="hero-eyebrow">
+    <span class="pulse-dot"></span>
+    <span>MISTRAL AI • NEURAL MULTI-AGENT ORCHESTRATION • RAG • VOICE</span>
+  </div>
+  <h1 class="hero-title">
+    Meet <span class="gradient-text">Aurora Agent AI</span>
+  </h1>
+  <p class="hero-subtitle">
+    Your personal autonomous multi-agent intelligence hub. Start with <strong>Aurora Master</strong> for automatic intent routing, or collaborate directly with a domain specialist grounded in your PDF knowledge base.
   </p>
-</section>
-
-<section class="agent-grid">
-  {% for agent in agents %}
-  <div class="agent-card {% if agent.is_master %}master-card{% endif %}">
-    <div class="agent-icon">
-      {% if agent.slug == "master" %}🧠
-      {% elif agent.slug == "finance" %}💰
-      {% elif agent.slug == "hr" %}👥
-      {% elif agent.slug == "sales" %}📈
-      {% elif agent.slug == "operations" %}⚙️
-      {% else %}🤖
-      {% endif %}
-    </div>
-
-    <h2>{{ agent.name }}</h2>
-    <p>{{ agent.description }}</p>
-
-    <a class="btn" href="/a/{{ agent.slug }}">
-      Open {{ agent.name }}
+  <div class="hero-actions">
+    <a href="/a/master" class="btn btn-primary btn-lg">
+      <span>✦ Launch Aurora Master</span>
+    </a>
+    <a href="#specialists" class="btn btn-glass btn-lg">
+      <span>Explore Specialists ↓</span>
     </a>
   </div>
-  {% endfor %}
+</section>
+
+<section id="specialists" class="section-block">
+  <div class="section-header">
+    <div>
+      <h2 class="section-title">Active Neural Agents</h2>
+      <p class="section-desc">Select an agent workspace to chat, test voice calls, or upload domain PDFs for vector retrieval.</p>
+    </div>
+  </div>
+
+  <div class="agent-grid">
+    {% for agent in agents %}
+    <article class="agent-card accent-{{ agent.accent or 'aurora' }} {% if agent.is_master %}master-card{% endif %}">
+      <div class="card-top">
+        <div class="agent-icon">
+          {{ agent.icon or "🤖" }}
+        </div>
+        <span class="agent-badge">{{ agent.badge or ("Master Router" if agent.is_master else "Specialist") }}</span>
+      </div>
+
+      <h3 class="agent-name">{{ agent.name }}</h3>
+      <p class="agent-desc">{{ agent.description }}</p>
+
+      {% if agent.sample_prompts %}
+      <div class="sample-preview">
+        <span class="sample-label">Example capability:</span>
+        <p class="sample-quote">“{{ agent.sample_prompts[0] }}”</p>
+      </div>
+      {% endif %}
+
+      <div class="card-footer">
+        <a class="btn {% if agent.is_master %}btn-primary{% else %}btn-secondary{% endif %} full-width" href="/a/{{ agent.slug }}">
+          Open {{ agent.name }} →
+        </a>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="architecture-strip">
+  <div class="arch-step">
+    <span class="arch-num">01</span>
+    <h4>Intent Classification</h4>
+    <p>Aurora Master analyzes natural language queries and routes them to Finance, HR, Sales, or Operations.</p>
+  </div>
+  <div class="arch-step">
+    <span class="arch-num">02</span>
+    <h4>Mistral Vector RAG</h4>
+    <p>Uploaded PDFs are chunked and embedded with <code>mistral-embed</code> to retrieve high-similarity domain context.</p>
+  </div>
+  <div class="arch-step">
+    <span class="arch-num">03</span>
+    <h4>Grounded Synthesis</h4>
+    <p>Each specialist responds strictly within its persona and knowledge base using <code>mistral-small-latest</code>.</p>
+  </div>
+  <div class="arch-step">
+    <span class="arch-num">04</span>
+    <h4>Web &amp; Voice Channels</h4>
+    <p>Unified <code>/chat/</code> pipeline powers both the Jinja2 interactive workspace and Vapi real-time voice calls.</p>
+  </div>
 </section>
 {% endblock %}

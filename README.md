@@ -1,272 +1,73 @@
-# 🧠 Multi-Agent System (Finance • HR • Sales • Operations)
+# ✦ Aurora Agent AI
 
-A production-ready multi-agent AI system built with FastAPI, Supabase, OpenAI, and Vapi. It routes user queries to specialized department agents through a Master Agent and supports chat, voice, PDF knowledge ingestion, embeddings, and retrieval-augmented generation.
+**Aurora Agent AI** is a full-stack multi-agent intelligence system built with **FastAPI**, **Jinja2**, **Mistral AI (Free Tier)**, **Supabase + pgvector**, and **Vapi Voice**. It routes user queries through **Aurora Master** to specialized domain agents (**Aurora Finance**, **Aurora HR**, **Aurora Sales**, and **Aurora Operations**) with Retrieval-Augmented Generation (RAG), PDF knowledge ingestion, and unified Web + Voice conversation memory — all served from a single command.
 
-## 🚀 Features
+---
 
-### 🧠 Multi-Agent Architecture
+## ✨ Key Capabilities
 
-- Master Agent routes user queries to the right department
-- Finance Agent handles payroll, invoices, expenses, budgets, and reimbursements
-- HR Agent handles hiring, leave, attendance, employee policies, and benefits
-- Sales Agent handles leads, CRM, quotes, follow-ups, and deals
-- Operations Agent handles logistics, SOPs, vendors, inventory, and daily operations
+### 🧠 Neural Multi-Agent Orchestration
+- **Aurora Master (`master`)**: Central orchestrator that analyzes intent and routes requests to the right specialist or handles general inquiries.
+- **Aurora Finance (`finance`)**: Payroll schedules, vendor invoices, expense reimbursements, budgets, tax compliance, and financial reporting.
+- **Aurora HR (`hr`)**: Talent acquisition, PTO & leave balances, attendance, onboarding checklists, benefits, and workplace policies.
+- **Aurora Sales (`sales`)**: Lead qualification, CRM pipeline management, custom pricing quotes, proposals, follow-ups, and deal closing.
+- **Aurora Operations (`operations`)**: Supply chain logistics, warehouse inventory, vendor SLAs, SOPs, and fulfillment workflows.
 
-### 🔍 Retrieval-Augmented Generation (RAG)
+### ⚡ Free-Tier Mistral AI + Automatic Multi-Provider Failover
+- **Mistral AI (Primary — Free Tier)**: Natively configured for `mistral-small-latest` (chat) and `mistral-embed` (vector embeddings) via Mistral's OpenAI-compatible API (`https://api.mistral.ai/v1`).
+- **Automatic Dimension Alignment**: Pads/normalizes `mistral-embed` vectors to `1536` dimensions so your Supabase `pgvector` tables work identically whether you use Mistral AI or OpenAI.
+- **Multi-Provider Failover**: Supports `MISTRAL_API_KEY` (first priority), `GROQ_API_KEY` (free tier `llama-3.3-70b-versatile`), and `OPENAI_API_KEY` (`gpt-4o-mini`).
 
-- Upload PDFs per agent
-- Automatic PDF text extraction, chunking, and embeddings
-- Semantic search through Supabase Postgres + pgvector
-- Grounded LLM responses using department-specific knowledge
+### 📚 Retrieval-Augmented Generation (RAG)
+- **Built-in UI & API PDF Upload**: Upload domain PDFs directly from each agent's sidebar in the Jinja2 UI (`POST /knowledge/upload/{agent_slug}`).
+- **Smart Chunking & Embeddings**: Extracts PDF text, splits along natural paragraph/sentence boundaries, and generates vector embeddings.
+- **Resilient Dual-Mode Storage**: Uses **Supabase Postgres + pgvector** when configured, and automatically falls back to an **in-memory vector & session store** for instant local development without external dependencies.
 
-### 🎙️ Voice Integration (Vapi)
+### 🎨 Unified Jinja2 Command Center (Zero Separate Frontend Server)
+- Everything runs with **one command** (`uvicorn app.main:app --reload`).
+- Modern Aurora dark glassmorphism UI with:
+  - One-click **Agent Switcher** & **Starter Prompt Chips**
+  - Live **Routing Telemetry Badges** & **RAG Chunk Counters**
+  - Interactive **PDF Knowledge Base Uploader**
+  - **Session Reset** (`POST /chat/reset`) & **Conversation History** (`GET /chat/history`)
 
-- Real-time voice assistant support
-- Vapi calls the backend `/chat/` endpoint
-- Dynamic routing through the Master Agent
-- Response mapping through the `reply` field
+---
 
-### 💬 Chat UI
+## ⚡ Quick Start (Single Command)
 
-- Clean Jinja2 frontend
-- Agent-specific chat pages
-- Session-based conversation memory
-- Shared chat endpoint for web and voice channels
-
-## 🏗️ Tech Stack
-
-- Backend: FastAPI
-- Database: Supabase Postgres + pgvector
-- LLM: OpenAI GPT-4o-mini
-- Voice: Vapi
-- Frontend: Jinja2 + vanilla JavaScript
-- Storage: Supabase Storage
-- PDF Processing: pypdf
-
-## 📂 Project Structure
-
-```text
-app/
-├── api/
-│   ├── chat.py          # Main chat endpoint for Vapi + UI
-│   ├── knowledge.py     # PDF upload endpoint
-│   ├── orders.py        # Orders route module
-│   ├── vapi.py          # Vapi route module
-│   └── vapi_dynamic.py  # Dynamic Vapi route module
-│
-├── services/
-│   ├── agents.py        # Agent lookup, prompts, and Vapi widget config
-│   ├── router.py        # Master routing logic
-│   ├── retrieval.py     # Vector search + conversation retrieval
-│   ├── llm_chat.py      # LLM response generation
-│   ├── memory.py        # Customers, conversations, and messages
-│   └── pdf_ingest.py    # PDF → chunks → embeddings
-│
-├── templates/
-│   ├── base.html
-│   ├── home.html
-│   └── order.html       # Agent chat UI
-│
-├── static/
-│   └── css/style.css
-│
-├── db/
-│   └── supabase.py
-│
-├── config.py
-└── main.py
-```
-
-## ⚙️ Setup
-
-### 1. Clone and install
+### 1. Create and activate a virtual environment
 
 ```bash
-git clone <your-repo>
-cd multi-agent-system
-python -m venv venv
-```
-
-Activate the virtual environment.
-
-Windows PowerShell:
-
-```powershell
-.\venv\Scripts\Activate.ps1
-```
-
-Windows CMD:
-
-```bat
-venv\Scripts\activate
-```
-
-macOS/Linux:
-
-```bash
+python3 -m venv venv
 source venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 2. Environment variables
+### 2. Get your Free Mistral AI Key & configure `.env`
 
-Create a `.env` file in the project root:
+1. Go to **[https://console.mistral.ai/api-keys/](https://console.mistral.ai/api-keys/)** and create a free API key under the free **Experiment** plan (no credit card needed).
+2. Copy `.env.example` to `.env` and paste your key:
 
-```env
-SUPABASE_URL=your_project_url
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-SUPABASE_BUCKET=knowledge-files
-
-OPENAI_API_KEY=your_openai_key
-
-VAPI_PUBLIC_KEY=your_public_key
-VAPI_ASSISTANT_ID=your_assistant_id
+```bash
+cp .env.example .env
 ```
 
-Optional:
-
 ```env
-VAPI_API_KEY=your_vapi_api_key
-ELEVENLABS_API_KEY=your_elevenlabs_api_key
+MISTRAL_API_KEY=your_mistral_api_key_here
+MISTRAL_MODEL=mistral-small-latest
+MISTRAL_EMBEDDING_MODEL=mistral-embed
 ```
 
-### 3. Run the server
+### 3. Start Aurora Agent AI
 
 ```bash
 uvicorn app.main:app --reload
 ```
 
-Open:
+Open **[http://127.0.0.1:8000](http://127.0.0.1:8000)** in your browser.
 
-```text
-http://127.0.0.1:8000
-```
-
-## 🗄️ Database Setup (Supabase)
-
-The app expects Supabase tables for:
-
-- `agents`
-- `customers`
-- `conversations`
-- `messages`
-- `knowledge_documents`
-- `knowledge_chunks`
-
-It also expects a vector search RPC function:
-
-```text
-match_knowledge_chunks(...)
-```
-
-Use a Supabase Storage bucket named:
-
-```text
-knowledge-files
-```
-
-## 🧠 How Routing Works
-
-```text
-User input
-   ↓
-Master Agent (router.py)
-   ↓
-Select department agent
-   ↓
-Retrieve relevant knowledge from Supabase vector search
-   ↓
-Generate response with OpenAI
-   ↓
-Save conversation memory
-```
-
-Available department routes:
-
-| Query type | Routed agent |
-| --- | --- |
-| Payroll, invoices, expenses, reimbursements | Finance |
-| Hiring, leave, attendance, policies, benefits | HR |
-| Leads, CRM, pricing, follow-ups, deals | Sales |
-| Logistics, SOPs, vendors, inventory | Operations |
-
-## 🎙️ Vapi Integration
-
-Configure a Vapi tool with:
-
-```text
-Method: POST
-URL: https://your-domain.com/chat/
-```
-
-Request body:
-
-```json
-{
-  "customer_key": "voice-user",
-  "message": "{{transcript}}",
-  "channel": "voice",
-  "agent_slug": "master"
-}
-```
-
-Response mapping:
-
-```text
-reply
-```
-
-## 📄 Knowledge Upload
-
-Upload PDFs for an agent:
-
-```text
-POST /knowledge/upload/{agent_id}
-```
-
-Ingestion flow:
-
-```text
-PDF → text extraction → chunks → embeddings → Supabase vector storage
-```
-
-## 🌐 Main Routes
-
-- `GET /` - agent selection page
-- `GET /a/{slug}` - agent chat page
-- `POST /chat/` - chat endpoint for UI and Vapi
-- `POST /knowledge/upload/{agent_id}` - upload and ingest a PDF for an agent
-- `GET /health` - health check
-- `GET /docs` - FastAPI Swagger documentation
-
-## 🧪 Example Queries
-
-| Input | Expected agent |
-| --- | --- |
-| "I need help with payroll" | Finance |
-| "How many leave days do I have?" | HR |
-| "Follow up with this lead" | Sales |
-| "Inventory is low" | Operations |
-
-
-## 🔥 Future Improvements
-
-- Multi-step agent workflows
-- Agent-to-agent communication
-- Long-term memory across sessions
-- Streaming responses
-- Authentication and user accounts
-- Dashboard analytics
+---
 
 ## 👨‍💻 Author
 
-Built by Washifur Rahman.
-
-## License
-
-Copyright (c) 2026 Washifur Rahman. All rights reserved.
+Designed & built by **Washifur Rahman**.
